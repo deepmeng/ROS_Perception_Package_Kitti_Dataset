@@ -1,8 +1,9 @@
 SARosPerceptionKitti
 =================
+ 
+ROS package for the Perception (Sensor Processing, Detection, Tracking and Evaluation) of the KITTI Vision Benchmark 
 
-A ROS package for the Perception (Sensor Processing, Detection, Tracking and Evaluation) of the KITTI Vision Benchmark Suite 
-
+### Demo
 <p align="center">
   <img src="./videos/semantic.gif">
 </p>
@@ -11,7 +12,85 @@ A ROS package for the Perception (Sensor Processing, Detection, Tracking and Eva
   <img src="./videos/rviz.gif">
 </p>
 
-### Setup
+### Usage
+
+1) Clone this repository, [download a preprocessed scenario](https://drive.google.com/drive/folders/1vHpkoC78fPXT64-VFL1H5Mm1bdukK5Qz?usp=sharing), and stick to following structure:  
+ 
+```
+    ~                                        # Home directory
+    ├── catkin_ws                            # Catkin workspace
+    │   ├── src                              # Clone repo in here
+    │       └── SAROSPerceptionKitti         # Repo
+    ├── kitti_data                           # Data folder
+    │   ├── 0001                             # Scenario 0001
+    │   ├── ...                              # Any other scenario
+    │   ├── 0060                             # Demo scenario 0060
+    │   │   ├── segmented_semantic_images    # Folder for semantic images (Copy download in here)
+    │   │   │   ├── 0000000000.png           # Semantic image from first time frame
+    │   │   │   ├── 0000000001.png           # Semantic image from second time frame
+    │   │   │   └── ...  
+    │   │   └── synchronized_data.bag        # Synchronized ROSbag file
+    │   ├── ...
+```
+
+2) Go into `sensor_processing/src/sensor_processing_lib/sensor_fusion.cpp` and hardcode your home directory within the method `processImage()`!
+
+3) Launch one of the following ROS nodes:  
+
+```
+roslaunch sensor_processing sensor_processing.launch
+roslaunch detection detection.launch
+roslaunch tracking tracking.launch
+```
+
+   * Default parameters: 
+        * scenario:=0060  
+        * speed:=0.25  
+        * delay:=3  
+
+Without assigning any of the abovementioned parameters the scenario 0060 (which is the demo above) is replayed at 25% of its speed with a 3 second delay so RViz has enough time to boot up.   
+
+### Results
+
+Evaluation results for 7 Scenarios `0011,0013,0014,0018,0056,0059,0060`
+
+| Class        |  MOTP   |  MODP   |
+| ------------ |:-------:|:-------:|
+| Car          | 0.715273| 0.785403|
+| Pedestrian   | 0.581809| 0.988038|
+
+### Area for Improvements
+
+* Friendly solution to not hard code the user's home directory path
+* Record walk through video of entire project
+* Find a way to run multiple scenarios with one execution
+* Improving the Object Detection:  
+     * Visualize Detection Grid
+     * Incorporate features of the shape of cars
+     * Handle false classification within the semantic segmentation
+     * Replace MinAreaRect with better fitting of the object's bounding box
+     * Integrate view of camera image to better group clusters since point clouds can be spare for far distances
+* Improving the Object Tracking:
+     * Delete duplicated tracks
+     * Soften yaw estimations
+* Improve evaluation
+     * Write out FP FN
+* Try different approaches:
+     * Applying the VoxelNet
+
+### Contact
+
+If you have any questions, things you would love to add or ideas how to actualize the points in the Area of Improvements, send me an email at simonappel62@gmail.com ! More than interested to collaborate and hear any kind of feedback.
+
+### Troubleshooting
+
+* Make sure to close RVIz and restart the ROS launch command if you want to execute the scenario again. Otherwise it seems like the data isn't moving anymore ([see here](https://github.com/appinho/SARosPerceptionKitti/issues/7))
+* Semenatic images warning: Go to sensor.cpp line 543 in sensor_processing_lib and hardcode your personal home directory! ([see full discussion here](https://github.com/appinho/SARosPerceptionKitti/issues/10))
+* Make sure the scenario is encoded as 4 digit number, like above `0060`
+* Make sure the images are encoded as 10 digit numbers starting from `0000000000.png`
+* Make sure the resulting semantic segmentated images have the color encoding of the [Cityscape Dataset](https://www.cityscapes-dataset.com/examples/)
+
+### Dependencies
 
 1) [Install ROS Kinetic on Ubuntu 16.04](http://wiki.ros.org/kinetic/Installation/Ubuntu)
 2) [Setup ROS Workspace](http://wiki.ros.org/catkin/Tutorials/create_a_workspace):  
@@ -24,88 +103,55 @@ catkin_make
 source devel/setup.bash  
 ```
 
-3) [Install Kitti2Bag](https://github.com/tomas789/kitti2bag)
+### DIY: Data generation
+
+
+1) [Install Kitti2Bag](https://github.com/tomas789/kitti2bag)
 
 ```
 pip install kitti2bag
 ```
 
-### Usage
+2) Convert scenario `0060` into a ROSbag file:  
 
-1) Convert scenario `0060` (from the demo above) into a ROSbag file:  
-
-* Download and unzip the `synced+rectified data` file and its `calibration` file from the [KITTI Raw Dataset](http://www.cvlibs.net/datasets/kitti/raw_data.php)
-* Merge both files into one ROSbag file
+    * Download and unzip the `synced+rectified data` file and its `calibration` file from the [KITTI Raw Dataset](http://www.cvlibs.net/datasets/kitti/raw_data.php)
+    * Merge both files into one ROSbag file
 
 ```
 cd ~/kitti_data/
 kitti2bag -t 2011_09_26 -r 0060 raw_synced
 ```
 
-2) Synchronize the sensor data:  
+3) Synchronize the sensor data:  
 
-* The script matches the timestamps of the Velodyne point cloud data with the Camara data to perform Sensor Fusion in a synchronized way within the ROS framework 
+    * The script matches the timestamps of the Velodyne point cloud data with the camara data to perform Sensor Fusion in a synchronized way within the ROS framework 
 ```
-cd ~/ROS_Perception_Kitti_Dataset/pre_processing/
+cd ~/catkim_ws/src/ROS_Perception_Kitti_Dataset/pre_processing/
 python sync_rosbag.py raw_synced.bag
 ```
 
-3) Store preprocessed semantic segmentated images:  
+4) Store preprocessed semantic segmentated images:  
 
-* The Camera data is preprocessed within a Deep Neural Network to create semantic segmentated images. With this step a "real-time" performance on any device (CPU usage) can be guaranteed
+    * The camera data is preprocessed within a Deep Neural Network to create semantic segmentated images. With this step a "real-time" performance on any device (CPU usage) can be guaranteed
 
 ```
 mkdir ~/kitti_data/0060/segmented_semantic_images/
 cd ~/kitti_data/0060/segmented_semantic_images/
 ```
 
-* For scenario `0060` you can [download my results](https://drive.google.com/file/d/1ihGnk5x9OlzF4X-YJXFsKB8rYSLyo0YF/view?usp=sharing) and store them within the directory
-
-* For any other scenario follow this steps: Well pre-trained network with an IOU of 73% can be found here: [Finetuned Google's DeepLab on KITTI Dataset](https://github.com/hiwad-aziz/kitti_deeplab)
-
-4) Run the ROS Package:  
-
-* Launch one of the following ROS nodes and wait until RViz is fully loaded:  
-
-```
-roslaunch sensor_processing sensor.launch 0060
-roslaunch detection detection.launch 0060
-roslaunch tracking tracking.launch 0060
-```
-
-* Play back the synchronized ROSbag file (here at 25% speed):  
-
-```
-cd ~/kitti_data/0060/
-rosbag play -r 0.25 synchronized_data.bag
-```
-
-### Troubleshooting
-
-* Make sure to close RVIz and restart the ROS launch command if you want to execute the scenario again. Otherwise it seems like the data isn't moving anymore ([see here](https://github.com/appinho/SARosPerceptionKitti/issues/7))
-* Make sure the scenario is encoded as 4 digit number, like above `0060`
-* Make sure the images are encoded as 10 digit numbers starting from `0000000000.png`
-* Make sure the resulting semantic segmentated images have the color encoding of the [Cityscape Dataset](https://www.cityscapes-dataset.com/examples/)
-
-### Discussion
-
-Evaluation results for 7 Scenarios `0011,0013,0014,0018,0056,0059,0060`
-
-| Class        |  MOTP   |  MODP   |
-| ------------ |:-------:|:-------:|
-| Car          | 0.715273| 0.785403|
-| Pedestrian   | 0.581809| 0.988038|
-
-### Areas for Improvements
-
-* Improving the Object Detection so that the object's shape, especially for cars, is incorporated and that false classification within the semantic segmentation can be tolerated
-* Applying the VoxelNet
-
-### Contact
-
-Send me an email simonappel62@gmail.com if you have any questions, wishes or ideas to find an even better solution! Happy to collaborate :)
+   * For any other scenario follow this steps: Well pre-trained network with an IOU of 73% can be found here: [Finetuned Google's DeepLab on KITTI Dataset](https://github.com/hiwad-aziz/kitti_deeplab)
 
 <!--
+
+### To Do
+
+* Make smaller gifs
+* Double check
+  * transformation from camera 02 to velo
+  * grid to point cloud has any errors
+* Reduce street pavement error prone cells
+* Objects to free space or not
+
 ## Evaluation for 7 Scenarios 0011,0013,0014,0018,0056,0059,0060
 
 | Class        | MOTA    | MOTP    |  MOTAL  |    MODA |    MODP |
@@ -138,4 +184,14 @@ Send me an email simonappel62@gmail.com if you have any questions, wishes or ide
 
 ### 3 Tracking: UKF Tracker
 
+
+Video image linker example
+
+[![Segmentation illustration](https://img.youtube.com/vi/UXHX9kFGXfg/0.jpg)](https://www.youtube.com/watch?v=UXHX9kFGXfg "Segmentation")
+
+
 -->
+
+## License
+
+With the standards of the [MIT License](LICENSE.md) you are more than welcomed to contribute to this repository!
